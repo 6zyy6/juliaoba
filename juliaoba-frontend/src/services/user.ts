@@ -15,3 +15,14 @@ export const getCurrentUser = async () => {
     return null;
 }
 
+/**
+ * 用户退出登录
+ */
+export const userLogout = async () => {
+    const res = await myAxios.post('/user/logout');
+    if (res.code === 0) {
+        return true;
+    }
+    return false;
+}
+

@@ -45,7 +45,7 @@ const onSubmit = async () => {
   console.log(res, '用户登录');
   if (res.code === 0 && res.data) {
     Toast.success('登录成功');
-    // 跳转到之前的页面
+    // 跳转到之前的页面，使用window.location确保完全刷新
     const redirectUrl = route.query?.redirect as string ?? '/';
     window.location.href = redirectUrl;
   } else {

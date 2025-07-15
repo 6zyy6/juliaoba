@@ -9,6 +9,7 @@ import com.yupi.yupao.exception.BusinessException;
 import com.yupi.yupao.model.domain.User;
 import com.yupi.yupao.model.request.UserLoginRequest;
 import com.yupi.yupao.model.request.UserRegisterRequest;
+import com.yupi.yupao.model.vo.TagCategoryVO;
 import com.yupi.yupao.model.vo.UserVO;
 import com.yupi.yupao.service.UserService;
 import lombok.extern.slf4j.Slf4j;
@@ -20,6 +21,8 @@ import org.springframework.web.bind.annotation.*;
 
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
@@ -180,4 +183,33 @@ public class UserController {
         return ResultUtils.success(userService.matchUsers(num, user));
     }
 
+    /**
+     * 获取标签分类
+     *
+     * @return
+     */
+    @GetMapping("/tags/categories")
+    public BaseResponse<List<TagCategoryVO>> getTagCategories() {
+        List<TagCategoryVO> tagCategories = new ArrayList<>();
+        
+        // 技术标签
+        TagCategoryVO techCategory = new TagCategoryVO();
+        techCategory.setName("技术");
+        techCategory.setTags(Arrays.asList("Java", "Python", "C++", "Go", "JavaScript", "Vue", "React", "Spring", "MySQL", "Redis"));
+        tagCategories.add(techCategory);
+        
+        // 兴趣标签
+        TagCategoryVO interestCategory = new TagCategoryVO();
+        interestCategory.setName("兴趣");
+        interestCategory.setTags(Arrays.asList("音乐", "电影", "旅游", "摄影", "阅读", "游戏", "健身", "美食", "绘画", "舞蹈"));
+        tagCategories.add(interestCategory);
+        
+        // 工作标签
+        TagCategoryVO workCategory = new TagCategoryVO();
+        workCategory.setName("工作");
+        workCategory.setTags(Arrays.asList("产品", "设计", "UI", "UX", "运营", "市场", "销售", "客服", "人力资源", "财务"));
+        tagCategories.add(workCategory);
+        
+        return ResultUtils.success(tagCategories);
+    }
 }

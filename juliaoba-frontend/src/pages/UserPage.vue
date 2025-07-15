@@ -4,6 +4,7 @@
     <van-cell title="修改信息" is-link to="/user/update" />
     <van-cell title="我创建的队伍" is-link to="/user/team/create" />
     <van-cell title="我加入的队伍" is-link to="/user/team/join" />
+    <van-cell title="退出登录" is-link @click="onLogout" />
   </template>
 </template>
 
@@ -12,7 +13,7 @@ import {useRouter} from "vue-router";
 import {onMounted, ref} from "vue";
 import myAxios from "../plugins/myAxios";
 import {Toast} from "vant";
-import {getCurrentUser} from "../services/user";
+import {getCurrentUser, userLogout} from "../services/user";
 
 // const user = {
 //   id: 1,
@@ -43,6 +44,18 @@ const toEdit = (editKey: string, editName: string, currentValue: string) => {
       currentValue,
     }
   })
+}
+
+/**
+ * 退出登录
+ */
+const onLogout = async () => {
+  const res = await userLogout();
+  if (res) {
+    Toast.success('退出登录成功');
+    // 刷新页面，强制重新登录
+    window.location.href = '/user/login';
+  }
 }
 </script>
 

@@ -11,8 +11,8 @@
   <van-divider content-position="left">已选标签</van-divider>
   <div v-if="activeIds.length === 0">请选择标签</div>
   <van-row gutter="16" style="padding: 0 16px">
-    <van-col v-for="tag in activeIds">
-      <van-tag closeable size="small" type="primary" @close="doClose(tag)">
+    <van-col v-for="tag in activeIds" :key="tag">
+      <van-tag closeable type="primary" @close="doClose(tag)">
         {{ tag }}
       </van-tag>
     </van-col>
@@ -29,63 +29,97 @@
 </template>
 
 <script setup lang="ts">
-import {ref} from 'vue';
+import {ref, onMounted} from 'vue';
 import {useRouter} from "vue-router";
+import {Toast} from "vant";
+import myAxios from "../plugins/myAxios";
 
-const router = useRouter()
+interface TagItem {
+  text: string;
+  id: string;
+}
+
+interface CategoryItem {
+  text: string;
+  children: TagItem[];
+}
+
+interface TagCategory {
+  name: string;
+  tags: string[];
+}
+
+const router = useRouter();
 
 const searchText = ref('');
 
-const originTagList = [{
-  text: '性别',
-  children: [
-    {text: '男', id: '男'},
-    {text: '女', id: '女'},
-  ],
-},
-  {
-    text: '年级',
-    children: [
-      {text: '大一', id: '大一'},
-      {text: '大二', id: '大二'},
-      {text: '大3', id: '大3'},
-      {text: '大4', id: '大4'},
-      {text: '大5', id: '大5aaaaaaa'},
-      {text: '大6', id: '大6aaaaaaa'},
-    ],
-  },
-]
+// 默认标签列表
+const defaultTagList: CategoryItem[] = [{
+  text: '加载中...',
+  children: []
+}];
 
 // 标签列表
-let tagList = ref(originTagList);
+let tagList = ref<CategoryItem[]>(defaultTagList);
+let originTagList = ref<CategoryItem[]>(defaultTagList);
+
+// 获取标签分类
+const fetchTagCategories = async () => {
+  try {
+    const res: any = await myAxios.get('/user/tags/categories');
+    console.log('Tag categories response:', res);
+    
+    if (res.code === 0 && res.data) {
+      // 转换为van-tree-select需要的格式
+      const categories = res.data.map((category: TagCategory) => ({
+        text: category.name,
+        children: category.tags.map((tag: string) => ({
+          text: tag,
+          id: tag
+        }))
+      }));
+      originTagList.value = categories;
+      tagList.value = categories;
+    } else {
+      Toast.fail('获取标签分类失败');
+    }
+  } catch (error) {
+    console.error('获取标签分类出错', error);
+    Toast.fail('获取标签分类出错');
+  }
+};
+
+onMounted(() => {
+  fetchTagCategories();
+});
 
 /**
  * 搜索过滤
- * @param val
+ * @param val 搜索文本
  */
-const onSearch = (val) => {
-  tagList.value = originTagList.map(parentTag => {
+const onSearch = (val: string) => {
+  tagList.value = originTagList.value.map(parentTag => {
     const tempChildren = [...parentTag.children];
     const tempParentTag = {...parentTag};
     tempParentTag.children = tempChildren.filter(item => item.text.includes(searchText.value));
     return tempParentTag;
   });
-
 }
+
 const onCancel = () => {
   searchText.value = '';
-  tagList.value = originTagList;
+  tagList.value = originTagList.value;
 };
 
 // 已选中的标签
-const activeIds = ref([]);
+const activeIds = ref<string[]>([]);
 const activeIndex = ref(0);
 
 // 移除标签
-const doClose = (tag) => {
+const doClose = (tag: string) => {
   activeIds.value = activeIds.value.filter(item => {
     return item !== tag;
-  })
+  });
 }
 
 /**
@@ -97,9 +131,8 @@ const doSearchResult = () => {
     query: {
       tags: activeIds.value
     }
-  })
+  });
 }
-
 </script>
 
 <style scoped>
