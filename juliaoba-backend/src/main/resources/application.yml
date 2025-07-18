@@ -4,13 +4,13 @@ spring:
   profiles:
     active: dev
   application:
-    name: yupao-backend
+    name: juliaoba-backend
   # DataSource Config
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
-    url: jdbc:mysql://localhost:3306/yupao?serverTimezone=Asia/Shanghai
-    username: root
-    password: 123456
+    url: jdbc:mysql://localhost:3306/juliaoba?serverTimezone=Asia/Shanghai
+    username: ${DB_USERNAME:root}
+    password: ${DB_PASSWORD:123456}
   # session 失效时间（分钟）
   session:
     timeout: 86400
@@ -20,8 +20,8 @@ spring:
       matching-strategy: ANT_PATH_MATCHER
   # redis 配置
   redis:
-    port: 6379
-    host: localhost
+    port: ${REDIS_PORT:6379}
+    host: ${REDIS_HOST:localhost}
     database: 1
 server:
   port: 8080

@@ -11,8 +11,8 @@
     <groupId>com.yupi</groupId>
     <artifactId>juliaoba-backend</artifactId>
     <version>0.0.1-SNAPSHOT</version>
-    <name>yupao-backend</name>
-    <description>yupao-backend</description>
+    <name>juliaoba-backend</name>
+    <description>juliaoba-backend</description>
     <properties>
         <java.version>1.8</java.version>
     </properties>
@@ -130,6 +130,15 @@
                             <artifactId>lombok</artifactId>
                         </exclude>
                     </excludes>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <configuration>
+                    <source>1.8</source>
+                    <target>1.8</target>
+                    <encoding>UTF-8</encoding>
                 </configuration>
             </plugin>
         </plugins>
