@@ -1,6 +1,3 @@
-# 数据库初始化
-# @author <a href="https://github.com/liyupi">程序员鱼皮</a>
-# @from <a href="https://yupi.icu">编程导航知识星球</a>
 create
 database if not exists yupao;
 
@@ -28,6 +25,9 @@ create table user
     tags         varchar(1024) null comment '标签 json 列表'
 ) comment '用户';
 
+-- 添加标签字段索引，提高查询性能
+create index idx_user_tags on user (tags);
+
 -- 队伍表
 create table team
 (
@@ -36,7 +36,7 @@ create table team
     description varchar(1024) null comment '描述',
     maxNum      int      default 1 not null comment '最大人数',
     expireTime  datetime null comment '过期时间',
-    userId      bigint comment '用户id（队长 id）',,
+    userId      bigint comment '用户id（队长 id）',
     status      int      default 0 not null comment '0 - 公开，1 - 私有，2 - 加密',
     password    varchar(512) null comment '密码',
     createTime  datetime default CURRENT_TIMESTAMP null comment '创建时间',
@@ -78,3 +78,13 @@ create table tag
 
 create index idx_userId
     on tag (userId);
+-- 删除表（注意：会删除表中所有数据，请谨慎操作）
+DROP TABLE IF EXISTS user_team;
+DROP TABLE IF EXISTS team;
+DROP TABLE IF EXISTS tag;
+DROP TABLE IF EXISTS user;
+
+-- 删除索引
+DROP INDEX IF EXISTS idx_userId ON tag;
+
+-- 然后再执行你的CREATE TABLE和CREATE INDEX语句

@@ -1,22 +1,45 @@
 <template>
-  <user-card-list :user-list="userList" />
-  <van-empty v-if="!userList || userList.length < 1" description="搜索结果为空" />
+  <van-nav-bar
+    title="标签搜索结果"
+    left-arrow
+    @click-left="onClickLeft"
+  />
+  <user-card-list :user-list="userList" :loading="loading"/>
+  <van-empty v-if="!loading && (!userList || userList.length < 1)" description="搜索结果为空" />
 </template>
 
 <script setup lang="ts">
 import {onMounted, ref} from 'vue';
-import {useRoute} from "vue-router";
+import {useRoute, useRouter} from "vue-router";
 import myAxios from "../plugins/myAxios";
 import {Toast} from "vant";
 import qs from 'qs';
 import UserCardList from "../components/UserCardList.vue";
 
 const route = useRoute();
+const router = useRouter();
 const {tags} = route.query;
 
 const userList = ref([]);
+const loading = ref(true);
 
 onMounted(async () => {
+  if (!tags || (Array.isArray(tags) && tags.length === 0)) {
+    Toast('请选择至少一个标签');
+    setTimeout(() => {
+      router.push('/search');
+    }, 1000);
+    return;
+  }
+  
+  // 显示加载状态
+  loading.value = true;
+  Toast.loading({
+    message: '搜索中...',
+    forbidClick: true,
+    duration: 0
+  });
+  
   const userListData = await myAxios.get('/user/search/tags', {
     params: {
       tagNameList: tags
@@ -32,7 +55,14 @@ onMounted(async () => {
       .catch(function (error) {
         console.error('/user/search/tags error', error);
         Toast.fail('请求失败');
+        return [];
       })
+      .finally(() => {
+        // 关闭加载提示
+        Toast.clear();
+        loading.value = false;
+      });
+  
   console.log(userListData)
   if (userListData) {
     userListData.forEach(user => {
@@ -42,27 +72,12 @@ onMounted(async () => {
     })
     userList.value = userListData;
   }
-})
+});
 
-
-// const mockUser = {
-//   id: 12345,
-//   username: '鱼皮',
-//   userAccount: '12314',
-//   profile: '一名精神小伙，目前还有头发，谢谢大家，阿爸爸阿爸爸阿巴阿巴阿巴',
-//   avatarUrl: 'https://636f-codenav-8grj8px727565176-1256524210.tcb.qcloud.la/img/logo.png',
-//   gender: 0,
-//   phone: '13113113111',
-//   email: '592342843721987@xzcxzczxcz.com',
-//   userRole: 0,
-//   planetCode: '1234',
-//   tags: ['java', 'emo', '打工中', 'emo', '打工中'],
-//   createTime: new Date(),
-// }
-
-
+const onClickLeft = () => {
+  router.back();
+};
 </script>
 
 <style scoped>
-
 </style>

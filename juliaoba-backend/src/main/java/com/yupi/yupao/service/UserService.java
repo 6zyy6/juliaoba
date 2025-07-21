@@ -57,6 +57,15 @@ public interface UserService extends IService<User> {
      * @return
      */
     List<User> searchUsersByTags(List<String> tagNameList);
+    
+    /**
+     * 根据标签搜索用户，并排除指定用户
+     *
+     * @param tagNameList 标签列表
+     * @param excludeUserId 要排除的用户ID
+     * @return 符合条件的用户列表
+     */
+    List<User> searchUsersByTags(List<String> tagNameList, Long excludeUserId);
 
     /**
      * 更新用户信息

@@ -30,6 +30,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
+import org.springframework.util.CollectionUtils;
 
 /**
  * 队伍接口
@@ -184,6 +185,21 @@ public class TeamController {
         User loginUser = userService.getLoginUser(request);
         teamQuery.setUserId(loginUser.getId());
         List<TeamUserVO> teamList = teamService.listTeams(teamQuery, true);
+        
+        // 获取队伍id列表
+        List<Long> teamIdList = teamList.stream().map(TeamUserVO::getId).collect(Collectors.toList());
+        if (!CollectionUtils.isEmpty(teamIdList)) {
+            // 查询已加入队伍的人数
+            QueryWrapper<UserTeam> userTeamJoinQueryWrapper = new QueryWrapper<>();
+            userTeamJoinQueryWrapper.in("teamId", teamIdList);
+            List<UserTeam> userTeamList = userTeamService.list(userTeamJoinQueryWrapper);
+            // 队伍 id => 加入这个队伍的用户列表
+            Map<Long, List<UserTeam>> teamIdUserTeamList = userTeamList.stream()
+                    .collect(Collectors.groupingBy(UserTeam::getTeamId));
+            teamList.forEach(team -> 
+                team.setHasJoinNum(teamIdUserTeamList.getOrDefault(team.getId(), new ArrayList<>()).size()));
+        }
+        
         return ResultUtils.success(teamList);
     }
 
@@ -205,18 +221,26 @@ public class TeamController {
         queryWrapper.eq("userId", loginUser.getId());
         List<UserTeam> userTeamList = userTeamService.list(queryWrapper);
         // 取出不重复的队伍 id
-        // teamId userId
-        // 1, 2
-        // 1, 3
-        // 2, 3
-        // result
-        // 1 => 2, 3
-        // 2 => 3
         Map<Long, List<UserTeam>> listMap = userTeamList.stream()
                 .collect(Collectors.groupingBy(UserTeam::getTeamId));
         List<Long> idList = new ArrayList<>(listMap.keySet());
         teamQuery.setIdList(idList);
         List<TeamUserVO> teamList = teamService.listTeams(teamQuery, true);
+        
+        // 获取队伍id列表
+        List<Long> teamIdList = teamList.stream().map(TeamUserVO::getId).collect(Collectors.toList());
+        if (!CollectionUtils.isEmpty(teamIdList)) {
+            // 查询已加入队伍的人数
+            QueryWrapper<UserTeam> userTeamJoinQueryWrapper = new QueryWrapper<>();
+            userTeamJoinQueryWrapper.in("teamId", teamIdList);
+            List<UserTeam> joinUserTeamList = userTeamService.list(userTeamJoinQueryWrapper);
+            // 队伍 id => 加入这个队伍的用户列表
+            Map<Long, List<UserTeam>> teamIdUserTeamList = joinUserTeamList.stream()
+                    .collect(Collectors.groupingBy(UserTeam::getTeamId));
+            teamList.forEach(team -> 
+                team.setHasJoinNum(teamIdUserTeamList.getOrDefault(team.getId(), new ArrayList<>()).size()));
+        }
+        
         return ResultUtils.success(teamList);
     }
 }

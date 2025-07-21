@@ -14,9 +14,7 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 import javax.annotation.Resource;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
+import java.util.*;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -37,6 +35,16 @@ public class PreCacheJob {
 
     // 重点用户
     private List<Long> mainUserList = Arrays.asList(1L);
+    
+    // 常用标签组合
+    private List<List<String>> hotTagCombinations = Arrays.asList(
+            Arrays.asList("Java", "Python"),
+            Arrays.asList("Java", "Spring"),
+            Arrays.asList("Python", "数据分析"),
+            Arrays.asList("前端", "Vue"),
+            Arrays.asList("游戏", "音乐"),
+            Arrays.asList("健身", "旅游")
+    );
 
     // 每天执行，预热推荐用户
     @Scheduled(cron = "0 31 0 * * *")
@@ -69,5 +77,32 @@ public class PreCacheJob {
             }
         }
     }
-
+    
+    /**
+     * 每6小时执行一次，预热热门标签搜索
+     */
+    @Scheduled(cron = "0 0 */6 * * *")
+    public void doCacheTagsSearch() {
+        RLock lock = redissonClient.getLock("yupao:precachejob:dotagscache:lock");
+        try {
+            if (lock.tryLock(0, -1, TimeUnit.MILLISECONDS)) {
+                log.info("开始预热标签搜索缓存");
+                for (List<String> tags : hotTagCombinations) {
+                    try {
+                        List<User> userList = userService.searchUsersByTags(tags);
+                        log.info("缓存标签组合: {}, 结果数: {}", tags, userList.size());
+                    } catch (Exception e) {
+                        log.error("缓存标签搜索异常", e);
+                    }
+                }
+                log.info("标签搜索缓存预热完成");
+            }
+        } catch (InterruptedException e) {
+            log.error("doCacheTagsSearch error", e);
+        } finally {
+            if (lock.isHeldByCurrentThread()) {
+                lock.unlock();
+            }
+        }
+    }
 }

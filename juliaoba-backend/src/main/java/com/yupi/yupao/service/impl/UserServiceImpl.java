@@ -1,21 +1,22 @@
 package com.yupi.yupao.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.google.gson.Gson;
-import com.google.gson.TypeAdapter;
 import com.google.gson.reflect.TypeToken;
 import com.yupi.yupao.common.ErrorCode;
-import com.yupi.yupao.constant.UserConstant;
 import com.yupi.yupao.exception.BusinessException;
-import com.yupi.yupao.model.domain.User;
-import com.yupi.yupao.model.vo.UserVO;
-import com.yupi.yupao.service.UserService;
 import com.yupi.yupao.mapper.UserMapper;
+import com.yupi.yupao.model.domain.User;
+import com.yupi.yupao.service.UserService;
 import com.yupi.yupao.utils.AlgorithmUtils;
+import javafx.util.Pair;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
-import org.apache.commons.math3.util.Pair;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.core.ValueOperations;
 import org.springframework.stereotype.Service;
 import org.springframework.util.CollectionUtils;
 import org.springframework.util.DigestUtils;
@@ -23,12 +24,12 @@ import org.springframework.util.DigestUtils;
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
 import java.util.*;
+import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
-import static com.yupi.yupao.constant.UserConstant.USER_LOGIN_STATE;
+import com.yupi.yupao.constant.UserConstant;
 
 /**
  * 用户服务实现类
@@ -41,10 +42,19 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
     @Resource
     private UserMapper userMapper;
 
+    @Resource
+    private RedisTemplate<String, Object> redisTemplate;
+
     /**
      * 盐值，混淆密码
      */
     private static final String SALT = "yupi";
+    
+    // 标签搜索缓存过期时间：15分钟
+    private static final long TAG_SEARCH_CACHE_TTL = 15 * 60 * 1000L;
+    
+    // 标签搜索缓存前缀
+    private static final String TAG_SEARCH_CACHE_KEY_PREFIX = "yupao:user:search:tags:";
 
     @Override
     public long userRegister(String userAccount, String userPassword, String checkPassword, String planetCode) {
@@ -134,7 +144,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         // 3. 用户脱敏
         User safetyUser = getSafetyUser(user);
         // 4. 记录用户的登录态
-        request.getSession().setAttribute(USER_LOGIN_STATE, safetyUser);
+        request.getSession().setAttribute(UserConstant.USER_LOGIN_STATE, safetyUser);
         return safetyUser;
     }
 
@@ -173,18 +183,73 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
     @Override
     public int userLogout(HttpServletRequest request) {
         // 移除登录态
-        request.getSession().removeAttribute(USER_LOGIN_STATE);
+        request.getSession().removeAttribute(UserConstant.USER_LOGIN_STATE);
         return 1;
     }
 
-    /**
-     * 根据标签搜索用户（内存过滤）
-     *
-     * @param tagNameList 用户要拥有的标签
-     * @return
-     */
     @Override
     public List<User> searchUsersByTags(List<String> tagNameList) {
+        return searchUsersByTags(tagNameList, null);
+    }
+    
+    /**
+     * 根据标签搜索用户
+     *
+     * @param tagNameList 用户要拥有的标签
+     * @param excludeUserId 需要排除的用户ID
+     * @return 符合条件的用户列表
+     */
+    public List<User> searchUsersByTags(List<String> tagNameList, Long excludeUserId) {
+        if (CollectionUtils.isEmpty(tagNameList)) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR);
+        }
+        
+        // 对标签进行排序，确保相同标签组合使用相同的缓存
+        Collections.sort(tagNameList);
+        
+        // 生成缓存key：标签用冒号分隔
+        String cacheKey = TAG_SEARCH_CACHE_KEY_PREFIX + String.join(":", tagNameList);
+        if (excludeUserId != null) {
+            cacheKey += ":exclude:" + excludeUserId;
+        }
+        
+        // 尝试从缓存读取
+        ValueOperations<String, Object> valueOperations = redisTemplate.opsForValue();
+        List<User> cachedUsers = (List<User>) valueOperations.get(cacheKey);
+        if (cachedUsers != null) {
+            return cachedUsers;
+        }
+        
+        // 使用SQL查询替代内存查询，提升大数据量下的性能
+        QueryWrapper<User> queryWrapper = new QueryWrapper<>();
+        // 构造查询条件
+        for (String tagName : tagNameList) {
+            queryWrapper = queryWrapper.like("tags", tagName);
+        }
+        
+        // 排除指定用户
+        if (excludeUserId != null) {
+            queryWrapper = queryWrapper.ne("id", excludeUserId);
+        }
+        
+        List<User> userList = userMapper.selectList(queryWrapper);
+        List<User> result = userList.stream().map(this::getSafetyUser).collect(Collectors.toList());
+        
+        // 写入缓存
+        try {
+            valueOperations.set(cacheKey, result, TAG_SEARCH_CACHE_TTL, TimeUnit.MILLISECONDS);
+        } catch (Exception e) {
+            log.error("Redis cache error", e);
+        }
+        
+        return result;
+    }
+
+    /**
+     * 根据标签搜索用户（内存版本，已弃用）
+     */
+    @Deprecated
+    private List<User> searchUsersByTagsByMemory(List<String> tagNameList) {
         if (CollectionUtils.isEmpty(tagNameList)) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
@@ -231,7 +296,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         if (request == null) {
             return null;
         }
-        Object userObj = request.getSession().getAttribute(USER_LOGIN_STATE);
+        Object userObj = request.getSession().getAttribute(UserConstant.USER_LOGIN_STATE);
         if (userObj == null) {
             throw new BusinessException(ErrorCode.NO_AUTH);
         }
@@ -247,7 +312,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
     @Override
     public boolean isAdmin(HttpServletRequest request) {
         // 仅管理员可查询
-        Object userObj = request.getSession().getAttribute(USER_LOGIN_STATE);
+        Object userObj = request.getSession().getAttribute(UserConstant.USER_LOGIN_STATE);
         User user = (User) userObj;
         return user != null && user.getUserRole() == UserConstant.ADMIN_ROLE;
     }
