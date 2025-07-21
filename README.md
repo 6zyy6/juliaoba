@@ -33,7 +33,7 @@ JuliaOba 是一个基于兴趣标签匹配的用户伙伴匹配系统，帮助�
 - MyBatis-Plus
 - Redisson (分布式锁)
 - Swagger (API文档)
-- GEO 空间索引 (MySQL空间数据处理)
+- Haversine 公式 (地球表面两点间距离计算)
 
 ## 项目结构
 
@@ -45,11 +45,20 @@ juliaoba/
 │   │   │   ├── common/ (通用类)
 │   │   │   ├── config/ (配置类)
 │   │   │   ├── controller/ (控制器)
+│   │   │   │   └── LocationController.java (地理位置相关接口)
 │   │   │   ├── exception/ (异常处理)
 │   │   │   ├── mapper/ (数据库访问层)
 │   │   │   ├── model/ (数据模型)
+│   │   │   │   ├── domain/ (实体类)
+│   │   │   │   ├── request/ (请求对象)
+│   │   │   │   │   └── LocationUpdateRequest.java (位置更新请求)
+│   │   │   │   └── vo/ (视图对象)
+│   │   │   │       └── NearbyUserVO.java (附近用户信息)
 │   │   │   ├── service/ (业务逻辑层)
-│   │   │   └── utils/ (工具类，包含GeoUtils地理计算工具)
+│   │   │   │   └── impl/
+│   │   │   │       └── UserServiceImpl.java (包含位置服务实现)
+│   │   │   └── utils/ 
+│   │   │       └── GeoUtils.java (地理位置计算工具)
 │   │   └── resources/ (配置文件)
 │   └── sql/ (数据库脚本)
 │       ├── create_table.sql (创建基础表)
@@ -61,7 +70,8 @@ juliaoba/
     │   ├── config/ (配置)
     │   ├── layouts/ (布局)
     │   ├── models/ (数据模型)
-    │   ├── pages/ (页面，包含NearbyPage附近用户页面)
+    │   ├── pages/ (页面)
+    │   │   └── NearbyPage.vue (附近的人页面)
     │   ├── plugins/ (插件)
     │   └── services/ (服务)
     └── public/ (公共资源)
@@ -72,7 +82,19 @@ juliaoba/
 ### 后端启动
 
 1. 创建MySQL数据库，执行 `sql/create_table.sql` 脚本创建表
-2. 执行 `sql/add_geo_to_user.sql` 脚本添加地理位置字段（如需使用GEO功能）
+2. 执行 `sql/add_geo_to_user.sql` 脚本添加地理位置字段：
+   ```sql
+   -- 为用户表添加地理位置字段
+   ALTER TABLE user
+   ADD COLUMN longitude DOUBLE DEFAULT NULL COMMENT '经度',
+   ADD COLUMN latitude DOUBLE DEFAULT NULL COMMENT '纬度',
+   ADD COLUMN lastLocationUpdateTime DATETIME DEFAULT NULL COMMENT '最后位置更新时间';
+   
+   -- 为经度和纬度分别创建普通索引，加速查询
+   ALTER TABLE user
+   ADD INDEX idx_longitude (longitude),
+   ADD INDEX idx_latitude (latitude);
+   ```
 3. 修改 `application.yml` 中的数据库和Redis连接配置
 4. 启动后端服务
    ```
@@ -119,12 +141,18 @@ docker run -p 8080:8080 juliaoba-backend
    - 用户登录后，在个人中心页面点击"附近的人"
    - 首次使用时，会请求位置权限，请允许获取位置
    - 系统会自动更新用户位置并搜索附近用户
-   - 可以调整搜索范围（默认5公里）查找不同距离内的用户
+   - 可以通过滑块调整搜索范围（1-20千米）查找不同距离内的用户
 
 3. **技术实现**：
-   - 前端使用HTML5 Geolocation API获取用户位置
-   - 后端使用Haversine公式计算地球表面两点间距离
-   - 使用MySQL空间索引优化地理位置查询性能
+   - 前端：使用HTML5 Geolocation API获取用户位置坐标
+   - 后端：
+     - 使用经纬度范围预筛选，提高查询效率
+     - 采用Haversine公式精确计算地球表面两点间距离
+     - 对结果按距离排序，提供友好展示
+
+4. **接口说明**：
+   - 位置更新：`POST /location/update` - 更新用户当前位置
+   - 附近用户：`GET /location/nearby?distance=5` - 获取指定范围内的用户
 
 ## 接口文档
 

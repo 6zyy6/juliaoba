@@ -88,6 +88,21 @@ public class User implements Serializable {
      * 星球编号
      */
     private String planetCode;
+    
+    /**
+     * 经度
+     */
+    private Double longitude;
+    
+    /**
+     * 纬度
+     */
+    private Double latitude;
+    
+    /**
+     * 最后位置更新时间
+     */
+    private Date lastLocationUpdateTime;
 
     @TableField(exist = false)
     private static final long serialVersionUID = 1L;

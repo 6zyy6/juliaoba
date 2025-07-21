@@ -11,6 +11,7 @@ import UserEditPage from "../pages/UserEditPage.vue";
 import UserLoginPage from "../pages/UserLoginPage.vue";
 import TeamAddPage from "../pages/TeamAddPage.vue";
 import TeamUpdatePage from "../pages/TeamUpdatePage.vue";
+import NearbyPage from "../pages/NearbyPage.vue";
 
 
 const routes = [
@@ -26,6 +27,7 @@ const routes = [
     { path: '/user/update', title: '更新信息', component: UserUpdatePage },
     { path: '/user/team/join', title: '加入队伍', component: UserTeamJoinPage },
     { path: '/user/team/create', title: '创建队伍', component: UserTeamCreatePage },
+    { path: '/user/nearby', title: '附近的人', component: NearbyPage },
 ]
 
 export default routes;

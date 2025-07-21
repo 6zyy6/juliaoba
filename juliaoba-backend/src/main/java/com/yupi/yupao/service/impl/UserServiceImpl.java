@@ -30,6 +30,9 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import com.yupi.yupao.constant.UserConstant;
+import com.yupi.yupao.model.vo.NearbyUserVO;
+import com.yupi.yupao.utils.GeoUtils;
+import org.springframework.beans.BeanUtils;
 
 /**
  * 用户服务实现类
@@ -398,6 +401,62 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         return userList.stream().map(this::getSafetyUser).collect(Collectors.toList());
     }
 
+    /**
+     * 获取附近的用户
+     *
+     * @param loginUser 当前登录用户
+     * @param distance  搜索半径，单位千米
+     * @return 附近用户列表
+     */
+    @Override
+    public List<NearbyUserVO> getNearbyUsers(User loginUser, double distance) {
+        if (loginUser == null || loginUser.getLatitude() == null || loginUser.getLongitude() == null) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "用户位置信息不存在");
+        }
+
+        // 获取用户当前位置
+        double latitude = loginUser.getLatitude();
+        double longitude = loginUser.getLongitude();
+
+        // 计算经纬度范围（矩形区域），提高查询效率
+        double[] latRange = GeoUtils.getLatitudeRange(latitude, distance);
+        double[] lonRange = GeoUtils.getLongitudeRange(latitude, longitude, distance);
+
+        // 查询在此范围内的用户
+        QueryWrapper<User> queryWrapper = new QueryWrapper<>();
+        queryWrapper.between("latitude", latRange[0], latRange[1])
+                .between("longitude", lonRange[0], lonRange[1])
+                .ne("id", loginUser.getId()) // 排除自己
+                .isNotNull("latitude") // 确保位置信息存在
+                .isNotNull("longitude");
+
+        List<User> users = this.list(queryWrapper);
+        
+        // 精确计算距离并按距离排序
+        List<NearbyUserVO> result = new ArrayList<>();
+        for (User user : users) {
+            if (user.getLatitude() == null || user.getLongitude() == null) {
+                continue;
+            }
+            
+            // 计算实际距离
+            double actualDistance = GeoUtils.calculateDistance(
+                    latitude, longitude, user.getLatitude(), user.getLongitude());
+            
+            // 仅包含在指定距离内的用户
+            if (actualDistance <= distance) {
+                NearbyUserVO nearbyUserVO = new NearbyUserVO();
+                BeanUtils.copyProperties(getSafetyUser(user), nearbyUserVO);
+                nearbyUserVO.setDistance(Math.round(actualDistance * 100) / 100.0); // 四舍五入到2位小数
+                result.add(nearbyUserVO);
+            }
+        }
+        
+        // 按距离升序排序
+        result.sort(Comparator.comparing(NearbyUserVO::getDistance));
+        
+        return result;
+    }
 }
 
 

@@ -4,6 +4,7 @@
     <van-cell title="修改信息" is-link to="/user/update" />
     <van-cell title="我创建的队伍" is-link to="/user/team/create" />
     <van-cell title="我加入的队伍" is-link to="/user/team/join" />
+    <van-cell title="附近的人" is-link to="/user/nearby" />
     <van-cell title="退出登录" is-link @click="onLogout" />
   </template>
 </template>

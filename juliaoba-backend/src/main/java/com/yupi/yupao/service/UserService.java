@@ -4,6 +4,7 @@ import com.yupi.yupao.common.BaseResponse;
 import com.yupi.yupao.model.domain.User;
 import com.baomidou.mybatisplus.extension.service.IService;
 import com.yupi.yupao.model.vo.UserVO;
+import com.yupi.yupao.model.vo.NearbyUserVO;
 
 import javax.servlet.http.HttpServletRequest;
 import java.util.List;
@@ -103,4 +104,12 @@ public interface UserService extends IService<User> {
      * @return
      */
     List<User> matchUsers(long num, User loginUser);
+    
+    /**
+     * 获取附近的用户
+     * @param loginUser 当前登录用户
+     * @param distance 搜索半径，单位千米
+     * @return 附近用户列表
+     */
+    List<NearbyUserVO> getNearbyUsers(User loginUser, double distance);
 }
